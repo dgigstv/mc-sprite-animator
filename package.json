@@ -1,7 +1,7 @@
 {
-  "name": "mc-pixel-art-animator",
+  "name": "mc-sprite-animator",
   "version": "0.0.1",
-  "description": "",
+  "description": "Turns PNG sprite frames to an animation in Minecraft.",
   "main": "dist/index.js",
   "scripts": {
     "build": "npx tsc",
@@ -9,6 +9,10 @@
   },
   "author": "DGigsTV",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dgigstv/mc-sprite-animator"
+  },
   "devDependencies": {
     "@types/pngjs": "^6.0.0",
     "@types/yargs": "^16.0.2",
