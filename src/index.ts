@@ -50,34 +50,10 @@ const { argv } = yargs(process.argv.slice(2))
             describe: 'The position to put the animation frames',
             type: 'string',
         },
-        'sourceWorld': {
-            alias: 'sw',
-            choices: [
-                'end',
-                'nether',
-                'overworld',
-            ],
-            default: 'overworld',
-            demandOption: false,
-            describe: 'The world to put the frames for the animation',
-            type: 'string',
-        },
         'animationPosition': {
             alias: 'ap',
             demandOption: true,
             describe: 'The position to show the animation',
-            type: 'string',
-        },
-        'animationWorld': {
-            alias: 'aw',
-            choices: [
-                'end',
-                'nether',
-                'overworld',
-            ],
-            default: 'overworld',
-            demandOption: false,
-            describe: 'The world to show the animation',
             type: 'string',
         },
     })
@@ -88,19 +64,25 @@ const { argv } = yargs(process.argv.slice(2))
     const { animationPosition, sourceOffset } = argv;
     const sourcePosition = readPosition(argv.sourcePosition);
     const outputFolder = path.join(process.cwd(), argv.output);
+    const functionsFolder = path.join(outputFolder, 'functions');
+    const structuresFolder = path.join(outputFolder, 'structures');
+    const ticksFolder = path.join(functionsFolder, 'ticks');
     const tasks: Promise<void>[] = [];
 
     // Create output directory
-    await fs.promises.mkdir(outputFolder, { recursive: true });
+    await fs.promises.mkdir(functionsFolder, { recursive: true });
+    await fs.promises.mkdir(ticksFolder, { recursive: true });
+    await fs.promises.mkdir(structuresFolder, { recursive: true });
 
-    const animationHandle = await fs.promises.open(path.join(outputFolder, 'animate.mcfunction'), 'w');
-    const createStructureHandle = await fs.promises.open(path.join(outputFolder, 'createStructure.mcfunction'), 'w');
+    const animationHandle = await fs.promises.open(path.join(functionsFolder, 'animate.mcfunction'), 'w');
+    const createStructureHandle = await fs.promises.open(path.join(functionsFolder, 'create_structure.mcfunction'), 'w');
 
     try {
         for (let i = 0; i < argv.files.length; i++) {
             const file = argv.files[i];
-            const tickFileName = path.join(outputFolder, `tick_${i}.mcfunction`);
-            const outputFileName = path.join(outputFolder, `frame_${i}.nbt`);
+            const tickFileName = path.join(ticksFolder, `tick_${i}.mcfunction`);
+            const structureName = `frame_${i}`;
+            const structureFilePath = path.join(structuresFolder, `${structureName}.nbt`);
             const z = sourcePosition.z - (i * sourceOffset);
 
             tasks.push(
@@ -164,25 +146,28 @@ const { argv } = yargs(process.argv.slice(2))
                             gzip(nbtBuffer),
                         ]);
                     })
-                    .then(([,gz]) => fs.promises.writeFile(outputFileName, gz)),
+                    .then(([,gz]) => fs.promises.writeFile(structureFilePath, gz)),
             );
 
-            const createStructureBuffer = Buffer.from(`setblock ${sourcePosition.x} ${sourcePosition.y} ${z} minecraft:structure_block[mode=load]{mode:"LOAD", name:"${argv.output}:${outputFileName}"} keep\n`
+            const createStructureBuffer = Buffer.from(`setblock ${sourcePosition.x} ${sourcePosition.y} ${z} minecraft:structure_block[mode=load]{mode:"LOAD", name:"animation:${structureName}"} keep\n`
                     + `setblock ${sourcePosition.x - 1} ${sourcePosition.y} ${sourcePosition.z - (i * sourceOffset)} minecraft:redstone_block destroy\n`);
             await createStructureHandle.write(createStructureBuffer, 0, createStructureBuffer.length);
 
             let animationBuffer: Buffer;
 
             if (i === 0) {
-                animationBuffer = Buffer.from(`function animation:tick_${i}\n`);
+                animationBuffer = Buffer.from(`function animation:ticks/tick_${i}\n`);
             } else {
-                animationBuffer = Buffer.from(`schedule function animation:tick_${i} ${i * 2}t append\n`);
+                animationBuffer = Buffer.from(`schedule function animation:ticks/tick_${i} ${i * 2}t append\n`);
             }
 
             await animationHandle.write(animationBuffer, 0, animationBuffer.length);
         }
 
+        const animationLoop = Buffer.from(`schedule function animation:animate ${argv.files.length * 2}t append`);
+
         await Promise.all(tasks);
+        await animationHandle.write(animationLoop, 0, animationLoop.length);
     } finally {
         await animationHandle.close();
         await createStructureHandle.close();
