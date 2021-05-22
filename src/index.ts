@@ -4,7 +4,7 @@ import path from 'path';
 import yargs from 'yargs';
 import zlib from 'zlib';
 import { promisify } from 'util';
-import { colorMap } from './constant';
+import { COLOR_MAP, MAX_FRAMES_PER_SECOND } from './constant';
 import { readPNG } from './png';
 import { Block, Blocks, DataVersion, Entities, Palette, Palettes, Position, Structure } from './class';
 import { readPosition } from './util';
@@ -26,17 +26,6 @@ const { argv } = yargs(process.argv.slice(2))
             describe: 'Output folder to store files',
             type: 'string',
         },
-        // 'sourceDirection': {
-        //     alias: 'sd',
-        //     choices: [
-        //         'adjacent',
-        //         'stacked',
-        //     ],
-        //     default: 'stacked',
-        //     demandOption: false,
-        //     describe: 'The direction that frames should be arranged. Stacked = on top of each other. Adjacent = next to each other.',
-        //     type: 'string',
-        // },
         'sourceOffset': {
             alias: 'so',
             default: 2,
@@ -56,18 +45,32 @@ const { argv } = yargs(process.argv.slice(2))
             describe: 'The position to show the animation',
             type: 'string',
         },
+        'animationSpeed': {
+            alias: 's',
+            default: 10,
+            demandOption: false,
+            describe: 'The speed that the animation should play at (in frames per second)',
+            type: 'number',
+        },
     })
     .usage('Usage: $0 -f [fileName.nbs] -m [mappings.json]')
     .help();
 
 (async function () {
-    const { animationPosition, sourceOffset } = argv;
+    const { animationPosition, animationSpeed, output: outputFolder, sourceOffset } = argv;
     const sourcePosition = readPosition(argv.sourcePosition);
-    const outputFolder = path.join(process.cwd(), argv.output);
     const functionsFolder = path.join(outputFolder, 'functions');
     const structuresFolder = path.join(outputFolder, 'structures');
     const ticksFolder = path.join(functionsFolder, 'ticks');
     const tasks: Promise<void>[] = [];
+
+    if (animationSpeed > MAX_FRAMES_PER_SECOND || MAX_FRAMES_PER_SECOND % animationSpeed !== 0) {
+        process.stderr.write(`Animation speed must be less than ${MAX_FRAMES_PER_SECOND} and must ` +
+            `divide evently into ${MAX_FRAMES_PER_SECOND}.\n`);
+        process.exit(1);
+    }
+
+    const tickOffset = MAX_FRAMES_PER_SECOND / animationSpeed;
 
     // Create output directory
     await fs.promises.mkdir(functionsFolder, { recursive: true });
@@ -106,7 +109,7 @@ const { argv } = yargs(process.argv.slice(2))
                                 const rgbKey = `${r},${g},${b}`;
                                 const opacity = png.data[index + 3];
 
-                                let minecraftBlock = colorMap.get(rgbKey);
+                                let minecraftBlock = COLOR_MAP.get(rgbKey);
 
                                 // If 100% transparent, it's air.
                                 if (opacity === 0) {
@@ -158,13 +161,13 @@ const { argv } = yargs(process.argv.slice(2))
             if (i === 0) {
                 animationBuffer = Buffer.from(`function animation:ticks/tick_${i}\n`);
             } else {
-                animationBuffer = Buffer.from(`schedule function animation:ticks/tick_${i} ${i * 2}t append\n`);
+                animationBuffer = Buffer.from(`schedule function animation:ticks/tick_${i} ${i * argv.sourceOffset}t append\n`);
             }
 
             await animationHandle.write(animationBuffer, 0, animationBuffer.length);
         }
 
-        const animationLoop = Buffer.from(`schedule function animation:animate ${argv.files.length * 2}t append`);
+        const animationLoop = Buffer.from(`schedule function animation:animate ${argv.files.length * tickOffset}t append`);
 
         await Promise.all(tasks);
         await animationHandle.write(animationLoop, 0, animationLoop.length);

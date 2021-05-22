@@ -1,4 +1,4 @@
-export const colorMap = new Map([
+export const COLOR_MAP = new Map([
     ['128,128,128', 'minecraft:light_gray_wool'],
     ['255,255,255', 'minecraft:white_wool'],
     ['255,0,0', 'minecraft:red_wool'],
@@ -10,3 +10,5 @@ export const colorMap = new Map([
     ['0,255,0', 'minecraft:lime_wool'],
     ['0,0,0', 'minecraft:black_wool'],
 ]);
+
+export const MAX_FRAMES_PER_SECOND = 20;
