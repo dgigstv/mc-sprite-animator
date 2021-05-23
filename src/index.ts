@@ -161,7 +161,7 @@ const { argv } = yargs(process.argv.slice(2))
             if (i === 0) {
                 animationBuffer = Buffer.from(`function animation:ticks/tick_${i}\n`);
             } else {
-                animationBuffer = Buffer.from(`schedule function animation:ticks/tick_${i} ${i * argv.sourceOffset}t append\n`);
+                animationBuffer = Buffer.from(`schedule function animation:ticks/tick_${i} ${i * tickOffset}t append\n`);
             }
 
             await animationHandle.write(animationBuffer, 0, animationBuffer.length);
