@@ -20,6 +20,12 @@ const { argv } = yargs(process.argv.slice(2))
             describe: 'Loads an NBS file',
             type: 'string',
         },
+        'loop': {
+            alias: 'l',
+            default: false,
+            describe: 'Whether or not the animation should loop',
+            type: 'boolean',
+        },
         'output': {
             alias: 'o',
             demandOption: true,
@@ -142,7 +148,8 @@ const { argv } = yargs(process.argv.slice(2))
                         const nbtBuffer = nbt.writeUncompressed(nbtStructure.toNBT() as any, 'big');
 
                         // Write the animation file contents.
-                        const tickFileContents = `clone ${sourcePosition.x + 1} ${sourcePosition.y} ${z} ${sourcePosition.x + png.width} ${sourcePosition.y + png.height} ${z} ${animationPosition} replace force\n`;
+                        // Remember that frames spawn +1 x and +1 y.
+                        const tickFileContents = `clone ${sourcePosition.x + 1} ${sourcePosition.y + 1} ${z} ${sourcePosition.x + png.width} ${sourcePosition.y + png.height} ${z} ${animationPosition} replace force\n`;
 
                         return Promise.all([
                             fs.promises.writeFile(tickFileName, tickFileContents),
@@ -170,7 +177,10 @@ const { argv } = yargs(process.argv.slice(2))
         const animationLoop = Buffer.from(`schedule function animation:animate ${argv.files.length * tickOffset}t append`);
 
         await Promise.all(tasks);
-        await animationHandle.write(animationLoop, 0, animationLoop.length);
+
+        if (argv.loop) {
+            await animationHandle.write(animationLoop, 0, animationLoop.length);
+        }
     } finally {
         await animationHandle.close();
         await createStructureHandle.close();
