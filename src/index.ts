@@ -85,6 +85,12 @@ const { argv } = yargs(process.argv.slice(2))
 
     const animationHandle = await fs.promises.open(path.join(functionsFolder, 'animate.mcfunction'), 'w');
     const createStructureHandle = await fs.promises.open(path.join(functionsFolder, 'create_structure.mcfunction'), 'w');
+    const forceLoadHandle = await fs.promises.open(path.join(functionsFolder, 'force_load.mcfunction'), 'w');
+
+    const forceChunksCallBuffer = Buffer.from('function animation:force_load\n');
+    await createStructureHandle.write(forceChunksCallBuffer, 0, forceChunksCallBuffer.length);
+
+    let firstPos = '';
 
     try {
         for (let i = 0; i < argv.files.length; i++) {
@@ -124,7 +130,7 @@ const { argv } = yargs(process.argv.slice(2))
 
                                 // If still no block identified, something didn't map.
                                 if (minecraftBlock == null) {
-                                    throw new Error(`Invalid color: ${rgbKey}`);
+                                    throw new Error(`Invalid color: ${rgbKey} in file ${structureName}`);
                                 }
 
                                 const states = nbtStructure.palettes.toArray();
@@ -172,6 +178,18 @@ const { argv } = yargs(process.argv.slice(2))
             }
 
             await animationHandle.write(animationBuffer, 0, animationBuffer.length);
+
+            if (i === 0) {
+                firstPos = `${sourcePosition.x} ${z}`;
+            } else if (i === argv.files.length - 1) {
+                if (firstPos === '') {
+                    throw new Error('Did not store first position');
+                }
+
+                const forceLoadBuffer = Buffer.from(`forceload add ${firstPos} ${sourcePosition.x} ${z}`);
+
+                await forceLoadHandle.write(forceLoadBuffer, 0, forceLoadBuffer.length);
+            }
         }
 
         const animationLoop = Buffer.from(`schedule function animation:animate ${argv.files.length * tickOffset}t append`);
